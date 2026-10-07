@@ -1,12 +1,11 @@
 import matplotlib
-matplotlib.use('Agg')  # 设置为后台绘图模式
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import numpy as np
 import os
 
-# --- 1. 配置和文件路径 ---
 base_dir = "/dat05/users/zhanghuihua/brain_development/less_out/Later_out/L2_tt_Later_result_csv/"
 output_dir = '/dat05/users/zhanghuihua/brain_development/less_out/Later_out/Plot2_diff/'
 os.makedirs(output_dir, exist_ok=True)
@@ -18,14 +17,12 @@ subregion_files = [
     'Subregion_4_Lateralization_Stats.csv'
 ]
 
-# 预定义的 11 个网络的标准顺序 (用于数据匹配，不要改)
 network_order = [
     'Lateral motor', 'Medial motor', 'Motor association', 'Frontoparietal',
     'Posterior parietal', 'Somatosensory', 'Visual', 'Temporoparietal',
     'Auditory', 'Prefrontal', 'Visual association'
 ]
 
-# 【修改点 1】新增：用于 X 轴展示的标准缩写列表（与上述网络严格一一对应）
 network_acronyms = [
     'LM', 'MM', 'MA', 'FPN', 
     'PPN', 'SMN', 'VIS', 'TPN', 
@@ -35,33 +32,27 @@ network_acronyms = [
 subregion_palette = {'C1': '#4e79a7', 'C2': '#f28e2b', 'C3': '#e15759', 'C4': '#76b7b2'}
 subregion_order = ['C1', 'C2', 'C3', 'C4']
 
-# --- 2. 加载和处理数据 ---
 all_subregion_data = []
-try:
-    for file in subregion_files:
-        file_path = os.path.join(base_dir, file)
-        df = pd.read_csv(file_path)
-        
-        df['Subregion_Standard'] = df['Subregion'].apply(lambda x: str(x).split()[-1])
-        df['Network'] = df['Network'].astype(str).str.strip().str.capitalize()
-        
-        df['Diff'] = pd.to_numeric(df['Diff'], errors='coerce')
-        df['p_fdr'] = pd.to_numeric(df['p_fdr'], errors='coerce')
-        df['p_val'] = pd.to_numeric(df['p_val'], errors='coerce')
-        df['t_stat'] = pd.to_numeric(df['t_stat'], errors='coerce')
-        
-        df['SE'] = np.where(df['t_stat'] != 0, np.abs(df['Diff'] / df['t_stat']), 0)
-        all_subregion_data.append(df)
-        
-    combined_df = pd.concat(all_subregion_data, ignore_index=True)
-except Exception as e:
-    print(f"数据加载出错: {e}")
-    exit()
+for file in subregion_files:
+    file_path = os.path.join(base_dir, file)
+    df = pd.read_csv(file_path)
+    
+    df['Subregion_Standard'] = df['Subregion'].apply(lambda x: str(x).split()[-1])
+    df['Network'] = df['Network'].astype(str).str.strip().str.capitalize()
+    
+    df['Diff'] = pd.to_numeric(df['Diff'], errors='coerce')
+    df['p_fdr'] = pd.to_numeric(df['p_fdr'], errors='coerce')
+    df['p_val'] = pd.to_numeric(df['p_val'], errors='coerce')
+    df['t_stat'] = pd.to_numeric(df['t_stat'], errors='coerce')
+    
+    df['SE'] = np.where(df['t_stat'] != 0, np.abs(df['Diff'] / df['t_stat']), 0)
+    all_subregion_data.append(df)
+    
+combined_df = pd.concat(all_subregion_data, ignore_index=True)
 
 network_order_clean = [name.strip().capitalize() for name in network_order]
 combined_df = combined_df[combined_df['Network'].isin(network_order_clean)]
 
-# --- 3. 绘图 ---
 fig, ax = plt.subplots(figsize=(16, 7.8))
 
 sns.barplot(
@@ -77,7 +68,6 @@ sns.barplot(
     ax=ax
 )
 
-# 制造间隙
 shrink_factor = 0.8
 for patch in ax.patches:
     current_width = patch.get_width()
@@ -85,30 +75,22 @@ for patch in ax.patches:
     patch.set_width(current_width * shrink_factor)
     patch.set_x(patch.get_x() + diff_width / 2)
 
-# 添加水平参考线
 ax.axhline(0, color='grey', linestyle='--', linewidth=1)
 
-# 设置轴标签和标题
 ax.set_ylabel('Lateralization', fontsize=14, fontweight='bold')
 
-# rotation=0 表示横向显示，ha='right' 让文字靠右对齐，x坐标 -0.11 视情况微调
 ax.text(-0.015, 0.85, 'Left', transform=ax.transAxes, fontsize=12, 
         fontweight='bold', rotation=0, va='center', ha='right', color='black')
 
 ax.text(-0.015, 0.15, 'Right', transform=ax.transAxes, fontsize=12, 
         fontweight='bold', rotation=0, va='center', ha='right', color='black')
 
-
-# 【修改点 2】隐去 X 轴大标题（因为缩写已经足够说明是网络了，省下纵向空间）
 ax.set_xlabel('') 
-
-# 【修改点 3】将标签替换为缩写，旋转设为 0 度，字号稍微加大并加粗以提升辨识度
 ax.set_xticklabels(network_acronyms, rotation=0, ha='center', fontsize=13, fontweight='bold')
 
 ax.set_title('IPL Subregions Lateralization Pattern (C1-C4)', fontsize=20, fontweight='bold', pad=17)
 ax.legend(title='Subregions', loc='upper right', frameon=False, bbox_to_anchor=(1, 1), fontsize=12, title_fontsize=12)
 
-# --- 4. 动态添加星号标注与误差棒 ---
 y_max = combined_df['Diff'].max() + combined_df['SE'].max()
 y_min = combined_df['Diff'].min() - combined_df['SE'].max()
 y_range = y_max - y_min
@@ -157,7 +139,6 @@ ax.set_ylim(-0.025, y_max + 0.15 * y_range)
 y_ticks = np.arange(-0.02, y_max + 0.15 * y_range, 0.02)
 ax.set_yticks(y_ticks)
 
-# 【修改点 4】在图表底部添加完整的缩写说明，满足学术规范
 legend_text = "Significant levels: * p_fdr<0.05, ** p_fdr<0.01\n"
 legend_text += "LM: Lateral motor, MM: Medial motor, MA: Motor association, FPN: Frontoparietal, PPN: Posterior parietal, SMN: Somatosensory\n"
 legend_text += "VIS: Visual, TPN: Temporoparietal, AUD: Auditory, PFC: Prefrontal, VAN: Visual association"
@@ -165,10 +146,8 @@ legend_text += "VIS: Visual, TPN: Temporoparietal, AUD: Auditory, PFC: Prefronta
 fig.text(0.5, 0.01, legend_text, ha='center', fontsize=11, style='italic', color='dimgrey', linespacing=1.5)
 
 plt.tight_layout()
-# 调整 bottom 腾出空间给底部的缩写说明文字
 plt.subplots_adjust(bottom=0.15, left=0.08)
 
-# --- 5. 保存 ---
 output_file_path = os.path.join(output_dir, 'IPL_Subregions_Lateralization_Plot.png')
 plt.savefig(output_file_path, dpi=300, bbox_inches='tight')
-print(f"完美修复！图片已更新为 1 区缩写排版标准，保存至: {output_file_path}")
+plt.close()
